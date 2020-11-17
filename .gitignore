@@ -1,0 +1,6 @@
+cdk.out
+node_modules
+.vscode
+.DS_Store
+yarn-error.log
+dist
