@@ -36,8 +36,15 @@ class Infrastructure extends cdk.Stack {
                     },
                     {
                         pathPattern: '/login*'
+                    },
+                    {
+                        pathPattern: '/errors/*'
                     }
-                ],
+                ]
+            }],
+            errorConfigurations: [{
+                errorCode: 404,
+                responsePagePath: '/errors/404.html'
             }]
         })
     }

@@ -1,6 +1,10 @@
 from http import cookies
+from urllib import parse
+
+import jwt
 
 cookie_name = 'SITE_ACCESS_TOKEN'
+algorithm = 'HS256'
 
 # UTILS
 def parse_cookies(headers):
@@ -24,8 +28,12 @@ def create_cookie(name, value, attributes={}):
         cookie[name][attr] = attributes[attr]
     return cookie.output(header='').strip()
 
-def validate_access_token(token):
-    return True
+def validate_access_token(token, secret):
+    try:
+        jwt.decode(token, secret, algorithms=[algorithm])
+        return True
+    except Exception as e:
+        return False
 
 # responses
 def login(redirect):
@@ -35,7 +43,7 @@ def login(redirect):
         'body': 'Redirecting to Login Page',
         'headers': {
             'location': [
-                { 'value': '/login' }
+                { 'value': f'/login/index.html?redirect={redirect}' }
             ],
             'set-cookie': [
                 { 'value': create_expired_cookie(cookie_name) }
@@ -50,7 +58,7 @@ def unauthorized():
         'body': 'Unauthorized',
         'headers': {
             'set-cookie': [
-                { 'value': create_expired_cookie('TOKEN') }
+                { 'value': create_expired_cookie(cookie_name) }
             ]
         }
     }
@@ -58,16 +66,43 @@ def unauthorized():
 def handler(event, ctx):
     request = event['Records'][0]['cf']['request']
     headers = request['headers']
+    secret = 'example-secret'
 
+    print(request)
     if request['uri'].startswith('/_callback'):
-        print(request)
-        request['uri'] = '/'
-        return request
+        querystring = parse.parse_qs(request['querystring'])
+
+        password = querystring.get('password')
+        if password is None:
+            return unauthorized()
+
+        redirect = querystring.get('redirect')
+        if redirect is None:
+            redirect = '/'
+
+        print(password)
+        # TODO: handle expiration
+        token = jwt.encode({}, secret, algorithm=algorithm).decode()
+
+        return {
+            'status': '302',
+            'statusDescription': 'Found',
+            'body': 'Redirecting',
+            'headers': {
+                'location': [
+                    { 'value': redirect }
+                ],
+                'set-cookie': [
+                    { 'value': create_cookie(cookie_name, token) }
+                ]
+            }
+        }
     elif 'cookie' in headers:
         cookie = parse_cookies(headers)
         access_token = cookie.get(cookie_name)
+
         if access_token is not None:
-            if validate_access_token(access_token):
+            if validate_access_token(access_token, secret):
                 return request
 
     return login(redirect=request['uri'])
