@@ -44,6 +44,7 @@ class Infrastructure extends cdk.Stack {
             }],
             errorConfigurations: [{
                 errorCode: 404,
+                responseCode: 404,
                 responsePagePath: '/errors/404.html'
             }]
         })
